@@ -1,17 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:managementsystem/screens/question_edit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'question_creation_page.dart';
+import 'question_edit.dart';
 
 class QuestionBankPage extends StatefulWidget {
-  final String
-      questionBankId; // Pass the questionBankId to fetch specific questions
+  final String questionBankId;
 
   QuestionBankPage({required this.questionBankId});
 
@@ -34,32 +32,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           IconButton(
             icon: Icon(Icons.import_export),
             onPressed: () {
-              // Show a dialog to choose between import and export
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    title: Text('Import/Export'),
-                    content: Text('Choose an action:'),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          exportQuestions();
-                          Navigator.pop(context);
-                        },
-                        child: Text('Export Questions'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          importQuestions();
-                          Navigator.pop(context);
-                        },
-                        child: Text('Import Questions'),
-                      ),
-                    ],
-                  );
-                },
-              );
+              _showImportExportDialog();
             },
           ),
         ],
@@ -146,21 +119,11 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('questionBanks')
-                  .doc(widget.questionBankId)
-                  .collection('questions')
-                  .where('type',
-                      isEqualTo: _selectedType != 'All' ? _selectedType : null)
-                  .where('difficulty',
-                      isEqualTo: _selectedDifficulty != 'All'
-                          ? _selectedDifficulty
-                          : null)
-                  .where('subject',
-                      isEqualTo:
-                          _selectedSubject != 'All' ? _selectedSubject : null)
-                  .snapshots(),
+              stream: _buildQuery().snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
                 if (!snapshot.hasData) {
                   return Center(child: CircularProgressIndicator());
                 }
@@ -172,6 +135,10 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                           .toLowerCase()
                           .contains(_searchQuery.toLowerCase());
                 }).toList();
+
+                if (questions.isEmpty) {
+                  return Center(child: Text('No questions found.'));
+                }
 
                 return ListView.builder(
                   itemCount: questions.length,
@@ -228,8 +195,10 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => QuestionCreationPage(
-                    questionBankId: widget.questionBankId)),
+              builder: (context) => QuestionCreationPage(
+                questionBankId: widget.questionBankId,
+              ),
+            ),
           );
         },
         child: Icon(Icons.add),
@@ -237,8 +206,83 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
     );
   }
 
+  Query _buildQuery() {
+    Query query = FirebaseFirestore.instance
+        .collection('questionBanks')
+        .doc(widget.questionBankId)
+        .collection('questions');
+
+    if (_selectedType != 'All') {
+      query = query.where('type', isEqualTo: _selectedType);
+    }
+    if (_selectedDifficulty != 'All') {
+      query = query.where('difficulty', isEqualTo: _selectedDifficulty);
+    }
+    if (_selectedSubject != 'All') {
+      query = query.where('subject', isEqualTo: _selectedSubject);
+    }
+
+    return query;
+  }
+
+  void _showImportExportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Import/Export'),
+          content: Text('Choose an action:'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                exportQuestions();
+                Navigator.pop(context);
+              },
+              child: Text('Export Questions'),
+            ),
+            TextButton(
+              onPressed: () {
+                importQuestions();
+                Navigator.pop(context);
+              },
+              child: Text('Import Questions'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void exportQuestions() async {
-    // Implement export logic here
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('questionBanks')
+        .doc(widget.questionBankId)
+        .collection('questions')
+        .get();
+
+    List<List<dynamic>> rows = [];
+    rows.add(['Text', 'Type', 'Difficulty', 'Subject']); // Header row
+
+    for (var question in snapshot.docs) {
+      rows.add([
+        question['text'],
+        question['type'],
+        question['difficulty'],
+        question['subject'],
+      ]);
+    }
+
+    String csv = const ListToCsvConverter().convert(rows);
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/questions.csv';
+    File file = File(path);
+    await file.writeAsString(csv);
+
+    // Optionally, share the file or handle it further
+    // SocialShare.shareFile(file);
+  }
+
+  void importQuestions() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
@@ -266,35 +310,5 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
         });
       }
     }
-  }
-
-  void importQuestions() async {
-    // Implement import logic here
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('questionBanks')
-        .doc(widget.questionBankId)
-        .collection('questions')
-        .get();
-
-    List<List<dynamic>> rows = [];
-    rows.add(['Text', 'Type', 'Difficulty', 'Subject']); // Header row
-
-    for (var question in snapshot.docs) {
-      rows.add([
-        question['text'],
-        question['type'],
-        question['difficulty'],
-        question['subject'],
-      ]);
-    }
-
-    String csv = const ListToCsvConverter().convert(rows);
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/questions.csv';
-    File file = File(path);
-    await file.writeAsString(csv);
-
-    // Optionally, share the file
-    // SocialShare.shareFile(file);
   }
 }
