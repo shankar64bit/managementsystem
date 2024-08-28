@@ -55,7 +55,7 @@ class AssessmentDetailPage extends StatelessWidget {
                 SizedBox(height: 10),
                 // Time Limit
                 Text(
-                  'Time Limit: ${assessment['timeLimit']} seconds',
+                  'Time Limit: ${assessment['timeLimit']} minutes',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),

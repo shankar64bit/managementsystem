@@ -30,10 +30,19 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
         .collection('assessments')
         .doc(widget.assessmentId)
         .get();
+
+    // Fetching fields from Firestore
     _titleController.text = assessment['title'];
     _typeController.text = assessment['type'];
     _questionBankController.text = assessment['questionBank'] ?? '';
-    _questionsController.text = assessment['questions'] ?? '';
+
+    // Handle questions as a list
+    if (assessment['questions'] is List) {
+      _questionsController.text = (assessment['questions'] as List).join(', ');
+    } else {
+      _questionsController.text = assessment['questions'] ?? '';
+    }
+
     _timeLimitController.text = assessment['timeLimit']?.toString() ?? '';
     _maxAttemptsController.text = assessment['maxAttempts']?.toString() ?? '';
     _feedbackController.text = assessment['feedback'] ?? '';
@@ -50,7 +59,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
           ? _questionBankController.text
           : null,
       'questions': _questionsController.text.isNotEmpty
-          ? _questionsController.text
+          ? _questionsController.text.split(',').map((q) => q.trim()).toList()
           : null,
       'timeLimit': int.tryParse(_timeLimitController.text) ?? 0,
       'maxAttempts': int.tryParse(_maxAttemptsController.text) ?? 0,
@@ -88,11 +97,12 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
             ),
             TextField(
               controller: _questionsController,
-              decoration: InputDecoration(labelText: 'Questions'),
+              decoration:
+                  InputDecoration(labelText: 'Questions (comma-separated)'),
             ),
             TextField(
               controller: _timeLimitController,
-              decoration: InputDecoration(labelText: 'Time Limit (in seconds)'),
+              decoration: InputDecoration(labelText: 'Time Limit (minutes)'),
               keyboardType: TextInputType.number,
             ),
             TextField(
