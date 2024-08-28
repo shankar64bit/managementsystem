@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1071626516951",
+    "project_id": "managementsystem-3c2ca",
+    "storage_bucket": "managementsystem-3c2ca.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071626516951:android:ff945f4bb79fa49b2af392",
+        "android_client_info": {
+          "package_name": "com.example.managementsystem"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbx3r6K4qFxOSrXWIIYAABi03msYNNteE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
