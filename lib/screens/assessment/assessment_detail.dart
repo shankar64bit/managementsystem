@@ -75,6 +75,12 @@ class AssessmentDetailPage extends StatelessWidget {
                   'Feedback: ${assessment['feedback']}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
+                SizedBox(height: 10),
+                // Instructions
+                Text(
+                  'Instructions: ${assessment['instructions']}',
+                  style: TextStyle(fontSize: 15, color: Colors.grey[800]),
+                ),
                 SizedBox(height: 20),
                 // Buttons Row
                 Row(

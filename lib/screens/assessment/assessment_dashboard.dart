@@ -1,8 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:managementsystem/screens/studentView/assessment_taking.dart';
-
 import 'assessment_creation.dart';
 import 'assessment_detail.dart';
 import '../user/login_page.dart';

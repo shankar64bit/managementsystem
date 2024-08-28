@@ -18,6 +18,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   int _timeLimit = 0;
   int _maxAttempts = 0;
   String _feedback = '';
+  String _instructions = '';
 
   void _addQuestion() {
     if (_questionController.text.isNotEmpty) {
@@ -50,6 +51,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
         'maxAttempts': _maxAttempts,
         'feedback': _feedback,
         'createdAt': Timestamp.now(),
+        'instructions': _instructions,
       }).then((_) {
         Navigator.pop(context);
       });
@@ -154,6 +156,14 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                 onChanged: (value) {
                   setState(() {
                     _feedback = value;
+                  });
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Instructions'),
+                onChanged: (value) {
+                  setState(() {
+                    _instructions = value;
                   });
                 },
               ),

@@ -10,6 +10,7 @@ class Assessment {
   final int maxAttempts;
   final String feedback;
   final Timestamp createdAt;
+  final String instructions;
 
   Assessment({
     required this.id,
@@ -21,6 +22,7 @@ class Assessment {
     required this.maxAttempts,
     required this.feedback,
     required this.createdAt,
+    required this.instructions,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +36,7 @@ class Assessment {
       'maxAttempts': maxAttempts,
       'feedback': feedback,
       'createdAt': createdAt,
+      'instructions': instructions,
     };
   }
 
@@ -48,6 +51,7 @@ class Assessment {
       maxAttempts: map['maxAttempts'],
       feedback: map['feedback'],
       createdAt: map['createdAt'],
+      instructions: map['instructions'],
     );
   }
 }

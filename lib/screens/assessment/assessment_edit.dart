@@ -18,6 +18,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
   final TextEditingController _timeLimitController = TextEditingController();
   final TextEditingController _maxAttemptsController = TextEditingController();
   final TextEditingController _feedbackController = TextEditingController();
+  final TextEditingController _instructionController = TextEditingController();
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
     _timeLimitController.text = assessment['timeLimit']?.toString() ?? '';
     _maxAttemptsController.text = assessment['maxAttempts']?.toString() ?? '';
     _feedbackController.text = assessment['feedback'] ?? '';
+    _instructionController.text = assessment['instructions'] ?? '';
   }
 
   void _updateAssessment() {
@@ -65,6 +67,9 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
       'maxAttempts': int.tryParse(_maxAttemptsController.text) ?? 0,
       'feedback':
           _feedbackController.text.isNotEmpty ? _feedbackController.text : null,
+      'instructions': _instructionController.text.isNotEmpty
+          ? _instructionController.text
+          : null,
     }).then((_) {
       Navigator.pop(context); // Go back to the detail page
     }).catchError((error) {
@@ -113,6 +118,10 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
             TextField(
               controller: _feedbackController,
               decoration: InputDecoration(labelText: 'Feedback'),
+            ),
+            TextField(
+              controller: _instructionController,
+              decoration: InputDecoration(labelText: 'Instructions'),
             ),
             SizedBox(height: 20),
             ElevatedButton(
