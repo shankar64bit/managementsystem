@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'assessment_creation.dart';
 import 'assessment_detail.dart';
+import '../user/login_page.dart';
 
 class AssessmentDashboard extends StatefulWidget {
   @override
@@ -13,16 +15,38 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
   String _searchQuery = '';
   String _selectedType = 'All';
   String _selectedSort = 'Date'; // Default sorting option
+  String _error = '';
 
   // Define colors for dropdowns
   final Color dropdownColor = Color(0xFFE3F2FD); // Light blue
   final Color dropdownTextColor = Color(0xFF0D47A1); // Dark blue
+
+  Future<void> _logout(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScreen()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to log out: ${e.toString()}';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Assessment Dashboard'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

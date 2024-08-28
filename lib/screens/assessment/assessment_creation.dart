@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'question_bank.dart';
-import 'question_creation_page.dart'; // Import your QuestionCreationPage
+import '../questionBank/question_bank.dart';
+import '../questionBank/question_creation_page.dart'; // Import your QuestionCreationPage
 
 class AssessmentCreationPage extends StatefulWidget {
   @override
