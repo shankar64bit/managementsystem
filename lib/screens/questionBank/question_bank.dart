@@ -63,7 +63,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _selectedType,
-                    items: ['All', 'Multiple Choice', 'True/False', 'Essay']
+                    items: ['All', 'MCQ', 'True/False', 'Essay']
                         .map((type) => DropdownMenuItem(
                               value: type,
                               child: Text(type),

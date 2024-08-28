@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:managementsystem/screens/studentView/assessment_taking.dart';
 
 import 'assessment_creation.dart';
 import 'assessment_detail.dart';
@@ -16,10 +17,18 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
   String _selectedType = 'All';
   String _selectedSort = 'Date'; // Default sorting option
   String _error = '';
+  int _selectedIndex = 0;
 
   // Define colors for dropdowns
   final Color dropdownColor = Color(0xFFE3F2FD); // Light blue
-  final Color dropdownTextColor = Color(0xFF0D47A1); // Dark blue
+  final Color dropdownTextColor = Color.fromARGB(226, 0, 0, 0);
+
+  final List<Widget> _pages = [
+    AssessmentDashboard(), // Current page
+    Page(), // Student View page
+    Page(), // Assessment Creation page
+    Page(), // Profile page or another page
+  ];
 
   Future<void> _logout(BuildContext context) async {
     try {
@@ -36,10 +45,22 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
     }
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // Navigate to the selected page
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => _pages[_selectedIndex]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.deepPurple,
         title: Text('Assessment Dashboard'),
         actions: [
           IconButton(
@@ -232,6 +253,47 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
           );
         },
         child: Icon(Icons.add),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+            backgroundColor: Colors.deepPurple,
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.view_list),
+            label: 'Student View',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.create),
+            label: 'Create',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        unselectedItemColor: Colors.white,
+      ),
+    );
+  }
+}
+
+class Page extends StatelessWidget {
+  const Page({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.deepPurple,
+        title: Text('Sample'),
+      ),
+      body: Container(
+        color: Colors.amber,
       ),
     );
   }
