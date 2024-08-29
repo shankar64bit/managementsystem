@@ -11,6 +11,7 @@ class Assessment {
   final String feedback;
   final Timestamp createdAt;
   final String instructions;
+  final bool hasTimer;
 
   Assessment({
     required this.id,
@@ -23,6 +24,7 @@ class Assessment {
     required this.feedback,
     required this.createdAt,
     required this.instructions,
+    required this.hasTimer,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,6 +39,7 @@ class Assessment {
       'feedback': feedback,
       'createdAt': createdAt,
       'instructions': instructions,
+      'hasTimer': hasTimer,
     };
   }
 
@@ -52,6 +55,7 @@ class Assessment {
       feedback: map['feedback'],
       createdAt: map['createdAt'],
       instructions: map['instructions'],
+      hasTimer: map['hasTimer'],
     );
   }
 }

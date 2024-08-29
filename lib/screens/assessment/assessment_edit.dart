@@ -70,6 +70,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
       'instructions': _instructionController.text.isNotEmpty
           ? _instructionController.text
           : null,
+      'hasTimer': true,
     }).then((_) {
       Navigator.pop(context); // Go back to the detail page
     }).catchError((error) {

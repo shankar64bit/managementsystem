@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../studentView/assessment_taking.dart';
 import 'assessment_edit.dart';
 
@@ -10,6 +11,13 @@ class AssessmentDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Fetch the current user's student ID from Firebase Authentication
+    final User? user = FirebaseAuth.instance.currentUser;
+    final String studentId = user?.uid ?? '';
+
+    // Create a GlobalKey for the AssessmentTakingPage
+    final GlobalKey assessmentKey = GlobalKey();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Assessment Details'),
@@ -61,6 +69,12 @@ class AssessmentDetailPage extends StatelessWidget {
                 // Time Limit
                 Text(
                   'Time Limit: ${timeLimit} minutes',
+                  style: TextStyle(fontSize: 15, color: Colors.grey[800]),
+                ),
+                SizedBox(height: 10),
+                //hasTimer
+                Text(
+                  'hasTimer: ${assessment['hasTimer']}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
@@ -157,10 +171,9 @@ class AssessmentDetailPage extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (context) => AssessmentTakingPage(
-                              assessmentTitle: assessmentTitle,
-                              instructions: instructions,
-                              hasTimer: hasTimer,
-                              timeLimit: Duration(minutes: timeLimit),
+                              key: assessmentKey,
+                              assessmentId: assessmentId,
+                              studentId: studentId,
                             ),
                           ),
                         );

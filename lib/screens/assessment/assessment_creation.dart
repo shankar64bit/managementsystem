@@ -52,6 +52,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
         'feedback': _feedback,
         'createdAt': Timestamp.now(),
         'instructions': _instructions,
+        'hasTimer': true,
       }).then((_) {
         Navigator.pop(context);
       });

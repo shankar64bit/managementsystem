@@ -55,6 +55,8 @@ class AuthWrapper extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.done) {
                 if (snapshot.data == true) {
                   return AssessmentDashboard();
+                } else {
+                  return AssessmentDashboard();
                 }
               }
               return Scaffold(body: Center(child: CircularProgressIndicator()));
