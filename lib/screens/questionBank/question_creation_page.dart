@@ -30,7 +30,14 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
         'subject': _selectedSubject,
         'createdAt': Timestamp.now(),
       }).then((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Question saved successfully')),
+        );
         Navigator.pop(context);
+      }).catchError((error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save question: $error')),
+        );
       });
     }
   }
@@ -45,11 +52,14 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Question Text'),
+                decoration: InputDecoration(
+                  labelText: 'Question Text',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
                 onChanged: (value) {
                   setState(() {
                     _questionText = value;
@@ -62,6 +72,7 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                   return null;
                 },
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedType,
                 items: ['Multiple Choice', 'True/False', 'Essay']
@@ -75,8 +86,12 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                     _selectedType = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Question Type'),
+                decoration: InputDecoration(
+                  labelText: 'Question Type',
+                  border: OutlineInputBorder(),
+                ),
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedDifficulty,
                 items: ['Easy', 'Medium', 'Hard']
@@ -90,8 +105,12 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                     _selectedDifficulty = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Question Difficulty'),
+                decoration: InputDecoration(
+                  labelText: 'Question Difficulty',
+                  border: OutlineInputBorder(),
+                ),
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedSubject,
                 items: ['Math', 'Science', 'History']
@@ -105,12 +124,24 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                     _selectedSubject = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Subject'),
+                decoration: InputDecoration(
+                  labelText: 'Subject',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _saveQuestion,
-                child: Text('Save Question'),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'Save Question',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ],
           ),

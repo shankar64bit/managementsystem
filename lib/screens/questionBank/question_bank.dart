@@ -31,9 +31,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
         actions: [
           IconButton(
             icon: Icon(Icons.import_export),
-            onPressed: () {
-              _showImportExportDialog();
-            },
+            onPressed: _showImportExportDialog,
           ),
         ],
       ),
@@ -172,12 +170,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                           IconButton(
                             icon: Icon(Icons.delete),
                             onPressed: () {
-                              FirebaseFirestore.instance
-                                  .collection('questionBanks')
-                                  .doc(widget.questionBankId)
-                                  .collection('questions')
-                                  .doc(question.id)
-                                  .delete();
+                              _deleteQuestion(question.id);
                             },
                           ),
                         ],
@@ -253,62 +246,123 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
     );
   }
 
-  void exportQuestions() async {
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('questionBanks')
-        .doc(widget.questionBankId)
-        .collection('questions')
-        .get();
+  Future<void> exportQuestions() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('questionBanks')
+          .doc(widget.questionBankId)
+          .collection('questions')
+          .get();
 
-    List<List<dynamic>> rows = [];
-    rows.add(['Text', 'Type', 'Difficulty', 'Subject']); // Header row
+      List<List<dynamic>> rows = [];
+      rows.add(['Text', 'Type', 'Difficulty', 'Subject']); // Header row
 
-    for (var question in snapshot.docs) {
-      rows.add([
-        question['text'],
-        question['type'],
-        question['difficulty'],
-        question['subject'],
-      ]);
+      for (var question in snapshot.docs) {
+        rows.add([
+          question['text'],
+          question['type'],
+          question['difficulty'],
+          question['subject'],
+        ]);
+      }
+
+      String csv = const ListToCsvConverter().convert(rows);
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/questions.csv';
+      File file = File(path);
+      await file.writeAsString(csv);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Questions exported to ${file.path}')),
+      );
+    } catch (e) {
+      print('Error exporting questions: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export questions')),
+      );
     }
-
-    String csv = const ListToCsvConverter().convert(rows);
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/questions.csv';
-    File file = File(path);
-    await file.writeAsString(csv);
-
-    // Optionally, share the file or handle it further
-    // SocialShare.shareFile(file);
   }
 
-  void importQuestions() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-    );
+  Future<void> importQuestions() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
 
-    if (result != null) {
-      final file = File(result.files.single.path!);
-      final input = file.openRead();
-      final fields = await input
-          .transform(utf8.decoder)
-          .transform(const CsvToListConverter())
-          .toList();
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final input = file.openRead();
+        final fields = await input
+            .transform(utf8.decoder)
+            .transform(const CsvToListConverter())
+            .toList();
 
-      for (var row in fields.skip(1)) {
-        // Skip header
-        await FirebaseFirestore.instance
-            .collection('questionBanks')
-            .doc(widget.questionBankId)
-            .collection('questions')
-            .add({
-          'text': row[0],
-          'type': row[1],
-          'difficulty': row[2],
-          'subject': row[3],
-        });
+        for (var row in fields.skip(1)) {
+          // Skip header
+          await FirebaseFirestore.instance
+              .collection('questionBanks')
+              .doc(widget.questionBankId)
+              .collection('questions')
+              .add({
+            'text': row[0],
+            'type': row[1],
+            'difficulty': row[2],
+            'subject': row[3],
+          });
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Questions imported successfully')),
+        );
       }
+    } catch (e) {
+      print('Error importing questions: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to import questions')),
+      );
     }
+  }
+
+  void _deleteQuestion(String questionId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Delete Question'),
+          content: Text('Are you sure you want to delete this question?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close the dialog
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                FirebaseFirestore.instance
+                    .collection('questionBanks')
+                    .doc(widget.questionBankId)
+                    .collection('questions')
+                    .doc(questionId)
+                    .delete()
+                    .then((_) {
+                  Navigator.pop(context); // Close the dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Question deleted successfully')),
+                  );
+                }).catchError((error) {
+                  print('Error deleting question: $error');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete question')),
+                  );
+                });
+              },
+              child: Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

@@ -23,7 +23,6 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
   late Timer _timer;
   late Duration _remainingTime;
   Map<String, dynamic> _studentAnswers = {};
-
   Map<String, dynamic>? _assessment;
   List<Map<String, dynamic>> _questions = [];
 
@@ -41,7 +40,6 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
 
   Future<void> _fetchAssessment() async {
     try {
-      // Fetch assessment details from Firestore
       DocumentSnapshot snapshot = await FirebaseFirestore.instance
           .collection('assessments')
           .doc(widget.assessmentId)
@@ -50,21 +48,17 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
       final assessmentData = snapshot.data() as Map<String, dynamic>?;
 
       if (assessmentData != null) {
-        // Ensure the questions field is a list of maps
         final questionsData = assessmentData['questions'];
         if (questionsData is List) {
           _questions = List<Map<String, dynamic>>.from(
-            questionsData
-                .where((q) => q is Map<String, dynamic>)
-                .cast<Map<String, dynamic>>(),
+            questionsData.where((q) => q is Map<String, dynamic>),
           );
         } else {
-          _questions =
-              []; // Fallback in case questions are not properly formatted
+          _questions = [];
         }
 
         if (assessmentData['hasTimer'] == true) {
-          _remainingTime = Duration(minutes: assessmentData['timeLimit']);
+          _remainingTime = Duration(minutes: assessmentData['timeLimit'] ?? 0);
           _startTimer();
         }
 
@@ -74,7 +68,9 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
       }
     } catch (e) {
       print("Error fetching assessment: $e");
-      // Handle error (e.g., show an error message)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load assessment. Please try again.')),
+      );
     }
   }
 
@@ -96,47 +92,63 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
     });
   }
 
-  void _saveProgress() async {
-    // Save the student's current answers to Firestore
-    await FirebaseFirestore.instance
-        .collection('students')
-        .doc(widget.studentId)
-        .collection('assessments')
-        .doc(widget.assessmentId)
-        .set({
-      'answers': _studentAnswers,
-      'progress': _currentQuestionIndex,
-      'savedAt': Timestamp.now(),
-    });
+  Future<void> _saveProgress() async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('assessments')
+          .doc(widget.assessmentId)
+          .set({
+        'answers': _studentAnswers,
+        'progress': _currentQuestionIndex,
+        'savedAt': Timestamp.now(),
+      });
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Progress saved successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Progress saved successfully!')));
+    } catch (e) {
+      print("Error saving progress: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save progress. Please try again.')),
+      );
+    }
   }
 
-  void _submitAssessment() async {
+  Future<void> _submitAssessment() async {
     setState(() {
       _isSubmitting = true;
     });
 
-    // Save the student's answers and mark the assessment as submitted
-    await FirebaseFirestore.instance
-        .collection('students')
-        .doc(widget.studentId)
-        .collection('assessments')
-        .doc(widget.assessmentId)
-        .set({
-      'answers': _studentAnswers,
-      'submittedAt': Timestamp.now(),
-      'status': 'submitted',
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('assessments')
+          .doc(widget.assessmentId)
+          .set({
+        'answers': _studentAnswers,
+        'submittedAt': Timestamp.now(),
+        'status': 'submitted',
+      });
 
-    setState(() {
-      _isSubmitting = false;
-      _showFeedback = true;
-    });
+      setState(() {
+        _isSubmitting = false;
+        _showFeedback = true;
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Assessment submitted successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Assessment submitted successfully!')));
+    } catch (e) {
+      setState(() {
+        _isSubmitting = false;
+      });
+      print("Error submitting assessment: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Failed to submit assessment. Please try again.')),
+      );
+    }
   }
 
   Widget _buildQuestionView(Map<String, dynamic> question) {
@@ -195,7 +207,7 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
       if (media.endsWith('.jpg') || media.endsWith('.png')) {
         return Image.network(media);
       } else if (media.endsWith('.mp4')) {
-        // Add video player widget for videos
+        // Implement video player widget for videos
         // return VideoPlayerWidget(url: media);
       }
     }
@@ -251,14 +263,10 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Question ${_currentQuestionIndex + 1}: ${currentQuestion['text']}',
-                                style: TextStyle(fontSize: 18),
-                              ),
+                              _buildQuestionView(currentQuestion),
                               SizedBox(height: 20),
-                              _buildAnswerInputField(currentQuestion),
-                              SizedBox(height: 20),
-                              if (_showFeedback)
+                              if (_showFeedback &&
+                                  currentQuestion.containsKey('feedback'))
                                 Text(
                                   'Feedback: ${currentQuestion['feedback']}',
                                   style: TextStyle(

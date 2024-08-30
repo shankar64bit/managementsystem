@@ -23,9 +23,9 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
 
   final List<Widget> _pages = [
     AssessmentDashboard(), // Current page
-    Page(), // Student View page
-    Page(), // Assessment Creation page
-    Page(), // Profile page or another page
+    SamplePage(title: 'Student View'), // Student View page
+    AssessmentCreationPage(), // Assessment Creation page
+    SamplePage(title: 'Profile'), // Profile page or another page
   ];
 
   Future<void> _logout(BuildContext context) async {
@@ -40,6 +40,9 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
       setState(() {
         _error = 'Failed to log out: ${e.toString()}';
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_error)),
+      );
     }
   }
 
@@ -200,12 +203,12 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                         (a['createdAt'] as Timestamp)
                             .compareTo(b['createdAt'] as Timestamp));
                   } else if (_selectedSort == 'Popularity') {
-                    filteredAssessments.sort((a, b) => (b['popularity'] as int)
-                        .compareTo(a['popularity'] as int));
+                    filteredAssessments.sort((a, b) =>
+                        (b['popularity'] ?? 0).compareTo(a['popularity'] ?? 0));
                   } else if (_selectedSort == 'Completion Rate') {
                     filteredAssessments.sort((a, b) =>
-                        (b['completionRate'] as double)
-                            .compareTo(a['completionRate'] as double));
+                        (b['completionRate'] ?? 0.0)
+                            .compareTo(a['completionRate'] ?? 0.0));
                   }
 
                   return ListView.builder(
@@ -222,15 +225,17 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(assessment['type']),
-                              Text(assessment['id']),
+                              Text(assessment.id), // Displays the assessment ID
                             ],
                           ),
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => AssessmentDetailPage(
-                                      assessmentId: assessment.id)),
+                                builder: (context) => AssessmentDetailPage(
+                                  assessmentId: assessment.id,
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -261,7 +266,7 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.view_list),
-            label: 'Student View',
+            label: 'Student',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.create),
@@ -274,24 +279,31 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        unselectedItemColor: Colors.white,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Color.fromARGB(255, 213, 171, 255),
+        showUnselectedLabels: true,
       ),
     );
   }
 }
 
-class Page extends StatelessWidget {
-  const Page({super.key});
+class SamplePage extends StatelessWidget {
+  final String title;
+
+  const SamplePage({Key? key, required this.title}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
-        title: Text('Sample'),
+        title: Text(title),
       ),
-      body: Container(
-        color: Colors.amber,
+      body: Center(
+        child: Text(
+          'This is the $title page',
+          style: TextStyle(fontSize: 24),
+        ),
       ),
     );
   }

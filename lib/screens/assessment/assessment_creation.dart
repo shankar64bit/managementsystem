@@ -13,7 +13,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   String _title = '';
   String _type = 'Quiz';
   String _questionBank = 'Select a question bank';
-  List<String> _questions = [];
+  List<Map<String, dynamic>> _questions = [];
   final TextEditingController _questionController = TextEditingController();
   int _timeLimit = 0;
   int _maxAttempts = 0;
@@ -23,7 +23,13 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   void _addQuestion() {
     if (_questionController.text.isNotEmpty) {
       setState(() {
-        _questions.add(_questionController.text);
+        _questions.add({
+          'id': 'custom_${_questions.length}', // Custom question identifier
+          'text': _questionController.text,
+          'type': 'Short Answer', // Default type, can be modified
+          'correctAnswer': '',
+          'feedback': '',
+        });
         _questionController.clear();
       });
     }
@@ -44,17 +50,25 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
         'id': newDocId,
         'title': _title,
         'type': _type,
-        'questionBank':
+        'questionBankId':
             _questionBank != 'Select a question bank' ? _questionBank : null,
         'questions': _questions, // Custom questions added manually
         'timeLimit': _timeLimit,
         'maxAttempts': _maxAttempts,
-        'feedback': _feedback,
+        'feedbackType':
+            'Immediate', // Example: "Immediate" or "After Completion"
         'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
         'instructions': _instructions,
-        'hasTimer': true,
+        'hasTimer': _timeLimit > 0,
       }).then((_) {
         Navigator.pop(context);
+      }).catchError((error) {
+        // Handle the error properly in your UI
+        print('Error saving assessment: $error');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to save assessment. Please try again.'),
+        ));
       });
     }
   }
@@ -68,10 +82,10 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
           .get();
 
       final questionsFromBank =
-          questionsSnapshot.docs.map((doc) => doc['text'] as String).toList();
+          questionsSnapshot.docs.map((doc) => doc.data()).toList();
 
       setState(() {
-        _questions.addAll(questionsFromBank);
+        _questions.addAll(questionsFromBank.cast<Map<String, dynamic>>());
       });
     }
   }
@@ -190,7 +204,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                       value: _questionBank,
                       items: [
                         'Select a question bank',
-                        'Question Bank 1',
+                        'Question Bank 1', // These should be dynamic or real IDs from Firestore
                         'Question Bank 2'
                       ]
                           .map((bank) => DropdownMenuItem(
@@ -230,7 +244,8 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                   itemCount: _questions.length,
                   itemBuilder: (context, index) {
                     return ListTile(
-                      title: Text(_questions[index]),
+                      title:
+                          Text(_questions[index]['text'] ?? 'No Question Text'),
                       trailing: IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () => _removeQuestion(index),

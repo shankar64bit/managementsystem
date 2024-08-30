@@ -31,6 +31,19 @@ class AssessmentDetailPage extends StatelessWidget {
           if (!snapshot.hasData) {
             return Center(child: CircularProgressIndicator());
           }
+
+          // Handling potential null data scenarios
+          if (!snapshot.hasData ||
+              snapshot.data == null ||
+              snapshot.data!.data() == null) {
+            return Center(
+              child: Text(
+                'No data found for this assessment.',
+                style: TextStyle(fontSize: 18, color: Colors.red),
+              ),
+            );
+          }
+
           final assessment = snapshot.data!.data() as Map<String, dynamic>;
           final assessmentTitle = assessment['title'] ?? 'No Title';
           final instructions = assessment['instructions'] ?? 'No Instructions';
@@ -56,13 +69,13 @@ class AssessmentDetailPage extends StatelessWidget {
                 SizedBox(height: 10),
                 // Question Bank
                 Text(
-                  'Question Bank: ${assessment['questionBank']}',
+                  'Question Bank: ${assessment['questionBank'] ?? 'None'}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
                 // Questions
                 Text(
-                  'Questions: ${assessment['questions']}',
+                  'Questions: ${(assessment['questions'] as List?)?.length ?? 0} questions',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
@@ -72,27 +85,27 @@ class AssessmentDetailPage extends StatelessWidget {
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
-                //hasTimer
+                // hasTimer
                 Text(
-                  'hasTimer: ${assessment['hasTimer']}',
+                  'Timer: ${hasTimer ? 'Enabled' : 'Disabled'}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
                 // Max Attempts
                 Text(
-                  'Max Attempts: ${assessment['maxAttempts']}',
+                  'Max Attempts: ${assessment['maxAttempts'] ?? 'Unlimited'}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
                 // Feedback
                 Text(
-                  'Feedback: ${assessment['feedback']}',
+                  'Feedback: ${assessment['feedback'] ?? 'No feedback provided'}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 10),
                 // Instructions
                 Text(
-                  'Instructions: ${assessment['instructions']}',
+                  'Instructions: ${instructions}',
                   style: TextStyle(fontSize: 15, color: Colors.grey[800]),
                 ),
                 SizedBox(height: 20),
@@ -128,7 +141,7 @@ class AssessmentDetailPage extends StatelessWidget {
                             return AlertDialog(
                               title: Text('Confirm Deletion'),
                               content: Text(
-                                  'Are you sure you want to delete this assessment?'),
+                                  'Are you sure you want to delete this assessment? This action cannot be undone.'),
                               actions: [
                                 TextButton(
                                   onPressed: () {
@@ -142,9 +155,20 @@ class AssessmentDetailPage extends StatelessWidget {
                                     FirebaseFirestore.instance
                                         .collection('assessments')
                                         .doc(assessmentId)
-                                        .delete();
-                                    Navigator.pop(
-                                        context); // Go back to the dashboard
+                                        .delete()
+                                        .then((_) {
+                                      Navigator.pop(
+                                          context); // Close the dialog
+                                      Navigator.pop(
+                                          context); // Go back to the dashboard
+                                    }).catchError((error) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                'Error deleting assessment: $error')),
+                                      );
+                                    });
                                   },
                                   child: Text('Delete',
                                       style: TextStyle(color: Colors.red)),
@@ -167,16 +191,25 @@ class AssessmentDetailPage extends StatelessWidget {
                     // Take Assessment Button
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AssessmentTakingPage(
-                              key: assessmentKey,
-                              assessmentId: assessmentId,
-                              studentId: studentId,
+                        if (studentId.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AssessmentTakingPage(
+                                key: assessmentKey,
+                                assessmentId: assessmentId,
+                                studentId: studentId,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'You must be logged in to take an assessment.'),
+                            ),
+                          );
+                        }
                       },
                       child: Text('Take Assessment'),
                       style: ElevatedButton.styleFrom(

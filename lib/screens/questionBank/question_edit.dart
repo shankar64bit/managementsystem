@@ -38,6 +38,32 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     _selectedSubject = widget.questionSubject;
   }
 
+  void _updateQuestion() {
+    if (_formKey.currentState!.validate()) {
+      FirebaseFirestore.instance
+          .collection('questionBanks')
+          .doc(widget.questionBankId)
+          .collection('questions')
+          .doc(widget.questionId)
+          .update({
+        'text': _questionText, // Corrected field from 'title' to 'text'
+        'type': _selectedType,
+        'difficulty': _selectedDifficulty,
+        'subject': _selectedSubject,
+        'updatedAt': Timestamp.now(), // Updated timestamp for edits
+      }).then((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Question updated successfully')),
+        );
+        Navigator.pop(context);
+      }).catchError((error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update question: $error')),
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,11 +74,15 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
                 initialValue: _questionText,
-                decoration: InputDecoration(labelText: 'Question Text'),
+                decoration: InputDecoration(
+                  labelText: 'Question Text',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a question';
@@ -63,6 +93,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                   _questionText = value;
                 },
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedType,
                 items: ['Multiple Choice', 'True/False', 'Essay']
@@ -76,8 +107,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     _selectedType = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Type'),
+                decoration: InputDecoration(
+                  labelText: 'Type',
+                  border: OutlineInputBorder(),
+                ),
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedDifficulty,
                 items: ['Easy', 'Medium', 'Hard']
@@ -91,8 +126,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     _selectedDifficulty = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Difficulty'),
+                decoration: InputDecoration(
+                  labelText: 'Difficulty',
+                  border: OutlineInputBorder(),
+                ),
               ),
+              SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedSubject,
                 items: ['Math', 'Science', 'History']
@@ -106,35 +145,24 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                     _selectedSubject = value!;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Subject'),
+                decoration: InputDecoration(
+                  labelText: 'Subject',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 30),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    // Update the question in Firestore
-                    FirebaseFirestore.instance
-                        .collection('questionBanks')
-                        .doc(widget.questionBankId)
-                        .collection('questions')
-                        .doc(widget.questionId)
-                        .update({
-                      'title': _questionText, // Updated field
-                      'type': _selectedType,
-                      'difficulty': _selectedDifficulty,
-                      'subject': _selectedSubject,
-                      'questionBank': widget
-                          .questionBankId, // Assuming this is the reference to the bank
-                      'createdAt': Timestamp.now(), // Update timestamp
-                    }).then((_) {
-                      Navigator.pop(context);
-                    }).catchError((error) {
-                      // Handle any errors here
-                      print("Failed to update question: $error");
-                    });
-                  }
-                },
-                child: Text('Update Question'),
+                onPressed: _updateQuestion,
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'Update Question',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ],
           ),

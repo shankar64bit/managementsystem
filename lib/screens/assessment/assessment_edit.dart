@@ -20,37 +20,64 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
   final TextEditingController _feedbackController = TextEditingController();
   final TextEditingController _instructionController = TextEditingController();
 
+  bool _hasTimer = false; // Track whether the assessment has a timer
+  bool _isLoading = true; // Loading state for fetching assessment data
+  String _errorMessage = ''; // To display error messages
+
   @override
   void initState() {
     super.initState();
     _fetchAssessment();
   }
 
-  void _fetchAssessment() async {
-    DocumentSnapshot assessment = await FirebaseFirestore.instance
-        .collection('assessments')
-        .doc(widget.assessmentId)
-        .get();
+  Future<void> _fetchAssessment() async {
+    try {
+      DocumentSnapshot assessment = await FirebaseFirestore.instance
+          .collection('assessments')
+          .doc(widget.assessmentId)
+          .get();
 
-    // Fetching fields from Firestore
-    _titleController.text = assessment['title'];
-    _typeController.text = assessment['type'];
-    _questionBankController.text = assessment['questionBank'] ?? '';
+      if (assessment.exists) {
+        // Fetching fields from Firestore
+        Map<String, dynamic> data = assessment.data() as Map<String, dynamic>;
+        _titleController.text = data['title'] ?? '';
+        _typeController.text = data['type'] ?? '';
+        _questionBankController.text = data['questionBank'] ?? '';
 
-    // Handle questions as a list
-    if (assessment['questions'] is List) {
-      _questionsController.text = (assessment['questions'] as List).join(', ');
-    } else {
-      _questionsController.text = assessment['questions'] ?? '';
+        // Handle questions as a list
+        if (data['questions'] is List) {
+          _questionsController.text = (data['questions'] as List).join(', ');
+        } else {
+          _questionsController.text = data['questions'] ?? '';
+        }
+
+        _timeLimitController.text = data['timeLimit']?.toString() ?? '';
+        _maxAttemptsController.text = data['maxAttempts']?.toString() ?? '';
+        _feedbackController.text = data['feedback'] ?? '';
+        _instructionController.text = data['instructions'] ?? '';
+        _hasTimer = data['hasTimer'] ?? false;
+      } else {
+        _errorMessage = 'Assessment not found.';
+      }
+    } catch (error) {
+      setState(() {
+        _errorMessage = 'Failed to fetch assessment: $error';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false; // Stop loading indicator
+      });
     }
-
-    _timeLimitController.text = assessment['timeLimit']?.toString() ?? '';
-    _maxAttemptsController.text = assessment['maxAttempts']?.toString() ?? '';
-    _feedbackController.text = assessment['feedback'] ?? '';
-    _instructionController.text = assessment['instructions'] ?? '';
   }
 
   void _updateAssessment() {
+    if (_titleController.text.isEmpty || _typeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Title and Type are required fields.')),
+      );
+      return;
+    }
+
     FirebaseFirestore.instance
         .collection('assessments')
         .doc(widget.assessmentId)
@@ -70,12 +97,14 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
       'instructions': _instructionController.text.isNotEmpty
           ? _instructionController.text
           : null,
-      'hasTimer': true,
+      'hasTimer': _hasTimer,
     }).then((_) {
       Navigator.pop(context); // Go back to the detail page
     }).catchError((error) {
       // Handle any errors here
-      print("Failed to update assessment: $error");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update assessment: $error')),
+      );
     });
   }
 
@@ -85,53 +114,72 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
       appBar: AppBar(
         title: Text('Edit Assessment'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(labelText: 'Title'),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _errorMessage.isNotEmpty
+                  ? Center(child: Text(_errorMessage))
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _titleController,
+                            decoration: InputDecoration(labelText: 'Title'),
+                          ),
+                          TextField(
+                            controller: _typeController,
+                            decoration: InputDecoration(labelText: 'Type'),
+                          ),
+                          TextField(
+                            controller: _questionBankController,
+                            decoration:
+                                InputDecoration(labelText: 'Question Bank'),
+                          ),
+                          TextField(
+                            controller: _questionsController,
+                            decoration: InputDecoration(
+                                labelText: 'Questions (comma-separated)'),
+                          ),
+                          TextField(
+                            controller: _timeLimitController,
+                            decoration: InputDecoration(
+                                labelText: 'Time Limit (minutes)'),
+                            keyboardType: TextInputType.number,
+                          ),
+                          TextField(
+                            controller: _maxAttemptsController,
+                            decoration:
+                                InputDecoration(labelText: 'Max Attempts'),
+                            keyboardType: TextInputType.number,
+                          ),
+                          TextField(
+                            controller: _feedbackController,
+                            decoration: InputDecoration(labelText: 'Feedback'),
+                          ),
+                          TextField(
+                            controller: _instructionController,
+                            decoration:
+                                InputDecoration(labelText: 'Instructions'),
+                          ),
+                          SwitchListTile(
+                            title: Text('Enable Timer'),
+                            value: _hasTimer,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasTimer = value;
+                              });
+                            },
+                          ),
+                          SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _updateAssessment,
+                            child: Text('Update'),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
-            TextField(
-              controller: _typeController,
-              decoration: InputDecoration(labelText: 'Type'),
-            ),
-            TextField(
-              controller: _questionBankController,
-              decoration: InputDecoration(labelText: 'Question Bank'),
-            ),
-            TextField(
-              controller: _questionsController,
-              decoration:
-                  InputDecoration(labelText: 'Questions (comma-separated)'),
-            ),
-            TextField(
-              controller: _timeLimitController,
-              decoration: InputDecoration(labelText: 'Time Limit (minutes)'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _maxAttemptsController,
-              decoration: InputDecoration(labelText: 'Max Attempts'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: _feedbackController,
-              decoration: InputDecoration(labelText: 'Feedback'),
-            ),
-            TextField(
-              controller: _instructionController,
-              decoration: InputDecoration(labelText: 'Instructions'),
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _updateAssessment,
-              child: Text('Update'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
