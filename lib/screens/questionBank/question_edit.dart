@@ -8,6 +8,7 @@ class QuestionEditPage extends StatefulWidget {
   final String questionType;
   final String questionDifficulty;
   final String questionSubject;
+  final String correctAnswer;
 
   QuestionEditPage({
     required this.questionBankId,
@@ -16,6 +17,7 @@ class QuestionEditPage extends StatefulWidget {
     required this.questionType,
     required this.questionDifficulty,
     required this.questionSubject,
+    required this.correctAnswer,
   });
 
   @override
@@ -28,6 +30,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
   late String _selectedType;
   late String _selectedDifficulty;
   late String _selectedSubject;
+  late String _selectedcorrectAnswer;
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
     _selectedType = widget.questionType;
     _selectedDifficulty = widget.questionDifficulty;
     _selectedSubject = widget.questionSubject;
+    _selectedcorrectAnswer = widget.correctAnswer;
   }
 
   void _updateQuestion() {
@@ -46,11 +50,12 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
           .collection('questions')
           .doc(widget.questionId)
           .update({
-        'text': _questionText, // Corrected field from 'title' to 'text'
+        'text': _questionText,
         'type': _selectedType,
         'difficulty': _selectedDifficulty,
         'subject': _selectedSubject,
-        'updatedAt': Timestamp.now(), // Updated timestamp for edits
+        '_correctAnswer': _selectedcorrectAnswer,
+        'updatedAt': Timestamp.now(),
       }).then((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Question updated successfully')),
@@ -80,6 +85,7 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
                 initialValue: _questionText,
                 decoration: InputDecoration(
                   labelText: 'Question Text',
+                  hintText: 'Enter the question text here',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -96,12 +102,13 @@ class _QuestionEditPageState extends State<QuestionEditPage> {
               SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedType,
-                items: ['Multiple Choice', 'True/False', 'Essay']
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
+                items:
+                    ['Multiple-choice', 'Short answer', 'Essay', 'True/False']
+                        .map((type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ))
+                        .toList(),
                 onChanged: (value) {
                   setState(() {
                     _selectedType = value!;

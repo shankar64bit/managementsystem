@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:managementsystem/screens/assessment/assessment_creation.dart';
-import 'package:managementsystem/screens/assessment/assessment_dashboard.dart';
+import 'package:managementsystem/screens/teachersView/assessment_creation.dart';
+import 'package:managementsystem/screens/teachersView/assessment_dashboard.dart';
 import 'screens/user/login_page.dart';
 import 'screens/user/registration_screen.dart';
 

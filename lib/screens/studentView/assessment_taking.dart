@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AssessmentTakingPage extends StatefulWidget {
   final String assessmentId;
@@ -20,22 +21,41 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
   int _currentQuestionIndex = 0;
   bool _isSubmitting = false;
   bool _showFeedback = false;
-  late Timer _timer;
-  late Duration _remainingTime;
+  Timer? _timer;
+  Duration _remainingTime = Duration.zero;
   Map<String, dynamic> _studentAnswers = {};
   Map<String, dynamic>? _assessment;
   List<Map<String, dynamic>> _questions = [];
+  Map<String, TextEditingController> _textControllers = {};
+  User? _currentUser;
+  Timer? _autoSaveTimer;
 
   @override
   void initState() {
     super.initState();
+    _getCurrentUser();
     _fetchAssessment();
+    _startAutoSaveTimer();
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
+    _autoSaveTimer?.cancel();
+    for (var controller in _textControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _getCurrentUser() async {
+    _currentUser = FirebaseAuth.instance.currentUser;
+    if (_currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please log in to take the assessment.')),
+      );
+      // Navigate to login page here
+    }
   }
 
   Future<void> _fetchAssessment() async {
@@ -51,10 +71,16 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
         final questionsData = assessmentData['questions'];
         if (questionsData is List) {
           _questions = List<Map<String, dynamic>>.from(
-            questionsData.where((q) => q is Map<String, dynamic>),
+            questionsData
+                .where((q) => q is Map<String, dynamic> && q['id'] != null),
           );
-        } else {
-          _questions = [];
+
+          for (var question in _questions) {
+            String questionId = question['id'];
+            if (!_textControllers.containsKey(questionId)) {
+              _textControllers[questionId] = TextEditingController();
+            }
+          }
         }
 
         if (assessmentData['hasTimer'] == true) {
@@ -65,6 +91,8 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
         setState(() {
           _assessment = assessmentData;
         });
+
+        await _loadExistingAnswers();
       }
     } catch (e) {
       print("Error fetching assessment: $e");
@@ -74,9 +102,51 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
     }
   }
 
+  Widget _buildMultipleChoiceQuestion(Map<String, dynamic> question) {
+    List<dynamic> options = question['options'] ?? [];
+    String questionId = question['id'] as String;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(question['text'] ?? 'No question text',
+            style: TextStyle(fontSize: 18)),
+        ...options.map((option) => RadioListTile<String>(
+              title: Text(option.toString()),
+              value: option.toString(),
+              groupValue: _studentAnswers[questionId],
+              onChanged: (value) => _updateAnswer(questionId, value),
+            )),
+      ],
+    );
+  }
+
+  Future<void> _loadExistingAnswers() async {
+    try {
+      DocumentSnapshot answersSnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(widget.studentId)
+          .collection('assessments')
+          .doc(widget.assessmentId)
+          .get();
+
+      if (answersSnapshot.exists) {
+        final answersData = answersSnapshot.data() as Map<String, dynamic>?;
+        if (answersData != null && answersData.containsKey('answers')) {
+          setState(() {
+            _studentAnswers = Map<String, dynamic>.from(answersData['answers']);
+          });
+          _updateTextControllers();
+        }
+      }
+    } catch (e) {
+      print("Error loading existing answers: $e");
+    }
+  }
+
   void _startTimer() {
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (_remainingTime.inSeconds == 0) {
+      if (_remainingTime.inSeconds <= 0) {
         _submitAssessment();
       } else {
         setState(() {
@@ -86,13 +156,98 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
     });
   }
 
+  void _startAutoSaveTimer() {
+    _autoSaveTimer = Timer.periodic(Duration(minutes: 1), (timer) {
+      _saveProgress(showSnackBar: false);
+    });
+  }
+
+  Widget _buildQuestionView(Map<String, dynamic> question) {
+    String? questionId = question['id'] as String?;
+    if (questionId == null || questionId.isEmpty) {
+      return Text('Error: Question ID is missing. Please contact support.');
+    }
+
+    switch (question['type']) {
+      case 'Multiple-choice':
+        return _buildMultipleChoiceQuestion(question);
+      case 'Short answer':
+      case 'Essay':
+        return _buildShortAnswerQuestion(question);
+      case 'True/False':
+        return _buildTrueFalseQuestion(question);
+      default:
+        return Text('Unsupported question type');
+    }
+  }
+
+  Widget _buildShortAnswerQuestion(Map<String, dynamic> question) {
+    String questionId = question['id'] as String;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(question['text'] ?? 'No question text',
+            style: TextStyle(fontSize: 18)),
+        TextField(
+          controller: _textControllers[questionId],
+          onChanged: (value) => _updateAnswer(questionId, value),
+          maxLines: question['type'] == 'Essay' ? 5 : 1,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrueFalseQuestion(Map<String, dynamic> question) {
+    String questionId = question['id'] as String;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(question['text'] ?? 'No question text',
+            style: TextStyle(fontSize: 18)),
+        RadioListTile<String>(
+          title: Text('True'),
+          value: 'True',
+          groupValue: _studentAnswers[questionId],
+          onChanged: (value) => _updateAnswer(questionId, value),
+        ),
+        RadioListTile<String>(
+          title: Text('False'),
+          value: 'False',
+          groupValue: _studentAnswers[questionId],
+          onChanged: (value) => _updateAnswer(questionId, value),
+        ),
+      ],
+    );
+  }
+
+  void _updateAnswer(String questionId, dynamic value) {
+    setState(() {
+      if (value != null && value.toString().isNotEmpty) {
+        _studentAnswers[questionId] = value.toString();
+      } else {
+        _studentAnswers.remove(questionId);
+      }
+    });
+    _saveProgress(showSnackBar: false);
+  }
+
   void _navigateToQuestion(int index) {
     setState(() {
       _currentQuestionIndex = index;
     });
+    _updateTextControllers();
   }
 
-  Future<void> _saveProgress() async {
+  void _updateTextControllers() {
+    for (var question in _questions) {
+      String questionId = question['id'] as String;
+      _textControllers[questionId]?.text = _studentAnswers[questionId] ?? '';
+    }
+  }
+
+  Future<void> _saveProgress({bool showSnackBar = true}) async {
     try {
       await FirebaseFirestore.instance
           .collection('students')
@@ -103,15 +258,20 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
         'answers': _studentAnswers,
         'progress': _currentQuestionIndex,
         'savedAt': Timestamp.now(),
-      });
+        'lastUpdatedBy': _currentUser?.uid,
+      }, SetOptions(merge: true));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Progress saved successfully!')));
+      if (showSnackBar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Progress saved successfully!')));
+      }
     } catch (e) {
       print("Error saving progress: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save progress. Please try again.')),
-      );
+      if (showSnackBar) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save progress. Please try again.')),
+        );
+      }
     }
   }
 
@@ -130,7 +290,8 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
         'answers': _studentAnswers,
         'submittedAt': Timestamp.now(),
         'status': 'submitted',
-      });
+        'submittedBy': _currentUser?.uid,
+      }, SetOptions(merge: true));
 
       setState(() {
         _isSubmitting = false;
@@ -149,96 +310,78 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
             content: Text('Failed to submit assessment. Please try again.')),
       );
     }
-  }
-
-  Widget _buildQuestionView(Map<String, dynamic> question) {
-    switch (question['type']) {
-      case 'Multiple Choice':
-        return _buildMultipleChoiceQuestion(question);
-      case 'Short Answer':
-        return _buildShortAnswerQuestion(question);
-      default:
-        return Text('Unsupported question type');
-    }
-  }
-
-  Widget _buildMultipleChoiceQuestion(Map<String, dynamic> question) {
-    List<dynamic> options = question['options'] ?? [];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (question.containsKey('media')) _buildMedia(question['media']),
-        Text(question['text'], style: TextStyle(fontSize: 18)),
-        ...options.map((option) => RadioListTile(
-              title: Text(option),
-              value: option,
-              groupValue: _studentAnswers[question['id']],
-              onChanged: (value) {
-                setState(() {
-                  _studentAnswers[question['id']] = value;
-                });
-              },
-            )),
-      ],
-    );
-  }
-
-  Widget _buildShortAnswerQuestion(Map<String, dynamic> question) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (question.containsKey('media')) _buildMedia(question['media']),
-        Text(question['text'], style: TextStyle(fontSize: 18)),
-        TextFormField(
-          initialValue: _studentAnswers[question['id']] ?? '',
-          onChanged: (value) {
-            setState(() {
-              _studentAnswers[question['id']] = value;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMedia(dynamic media) {
-    if (media is String) {
-      if (media.endsWith('.jpg') || media.endsWith('.png')) {
-        return Image.network(media);
-      } else if (media.endsWith('.mp4')) {
-        // Implement video player widget for videos
-        // return VideoPlayerWidget(url: media);
-      }
-    }
-    return SizedBox.shrink();
+    Navigator.pop(context);
+    Navigator.pop(context);
   }
 
   Widget _buildQuestionNavigation() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(
-        _questions.length,
-        (index) => IconButton(
-          icon: Icon(
-            index == _currentQuestionIndex
-                ? Icons.radio_button_checked
-                : Icons.radio_button_unchecked,
-          ),
-          onPressed: () => _navigateToQuestion(index),
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: Icon(Icons.arrow_back_ios),
+          onPressed: _currentQuestionIndex > 0
+              ? () => _navigateToQuestion(_currentQuestionIndex - 1)
+              : null,
         ),
+        Text(
+          'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          icon: Icon(Icons.arrow_forward_ios),
+          onPressed: _currentQuestionIndex < _questions.length - 1
+              ? () => _navigateToQuestion(_currentQuestionIndex + 1)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuestionIndicators() {
+    return Container(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _questions.length,
+        itemBuilder: (context, index) {
+          bool isAnswered =
+              _studentAnswers.containsKey(_questions[index]['id']);
+          bool isCurrent = index == _currentQuestionIndex;
+
+          return GestureDetector(
+            onTap: () => _navigateToQuestion(index),
+            child: Container(
+              width: 30,
+              margin: EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCurrent
+                    ? Colors.blue
+                    : (isAnswered ? Colors.green : Colors.grey),
+              ),
+              child: Center(
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentQuestion =
-        _questions.isNotEmpty ? _questions[_currentQuestionIndex] : null;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('${_assessment?['title'] ?? ''} - [Student view]'),
+        title: Text(
+          '${_assessment?['title'] ?? ''} - Student: ${_currentUser?.displayName ?? ''}',
+          style: TextStyle(fontSize: 15),
+        ),
       ),
       body: _assessment == null
           ? Center(child: CircularProgressIndicator())
@@ -253,38 +396,34 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
                   ),
                   if (_assessment?['hasTimer'] == true)
                     Text(
-                      'Time Remaining: ${_remainingTime.inMinutes}:${_remainingTime.inSeconds % 60}',
+                      'Time Remaining: ${_remainingTime.inMinutes}:${(_remainingTime.inSeconds % 60).toString().padLeft(2, '0')}',
                       style: TextStyle(fontSize: 16, color: Colors.red),
                     ),
                   SizedBox(height: 20),
+                  _buildQuestionNavigation(),
+                  SizedBox(height: 10),
+                  _buildQuestionIndicators(),
+                  SizedBox(height: 20),
                   Expanded(
-                    child: currentQuestion == null
+                    child: _questions.isEmpty
                         ? Center(child: Text('No questions available'))
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildQuestionView(currentQuestion),
-                              SizedBox(height: 20),
-                              if (_showFeedback &&
-                                  currentQuestion.containsKey('feedback'))
-                                Text(
-                                  'Feedback: ${currentQuestion['feedback']}',
-                                  style: TextStyle(
-                                      color: Colors.green, fontSize: 16),
-                                ),
-                            ],
+                        : SingleChildScrollView(
+                            child: _currentQuestionIndex < _questions.length
+                                ? _buildQuestionView(
+                                    _questions[_currentQuestionIndex])
+                                : Text('Error: Invalid question index'),
                           ),
                   ),
-                  _buildQuestionNavigation(),
+                  SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       ElevatedButton(
-                        onPressed: _saveProgress,
+                        onPressed: () => _saveProgress(showSnackBar: true),
                         child: Text('Save Progress'),
                       ),
                       ElevatedButton(
-                        onPressed: _submitAssessment,
+                        onPressed: _isSubmitting ? null : _submitAssessment,
                         child: _isSubmitting
                             ? CircularProgressIndicator()
                             : Text('Submit Assessment'),
@@ -295,16 +434,5 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
               ),
             ),
     );
-  }
-
-  Widget _buildAnswerInputField(Map<String, dynamic> question) {
-    switch (question['type']) {
-      case 'Multiple Choice':
-        return _buildMultipleChoiceQuestion(question);
-      case 'Short Answer':
-        return _buildShortAnswerQuestion(question);
-      default:
-        return Container();
-    }
   }
 }

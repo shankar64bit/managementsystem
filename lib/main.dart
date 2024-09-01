@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:managementsystem/screens/assessment/assessment_dashboard.dart';
+import 'package:managementsystem/screens/teachersView/assessment_dashboard.dart';
 import 'package:provider/provider.dart';
 import 'routes.dart';
 import 'firebase_options.dart';
+import 'screens/studentView/student_dashboard.dart';
 import 'screens/user/login_page.dart';
 import 'services/auth_service.dart';
 
@@ -56,7 +57,7 @@ class AuthWrapper extends StatelessWidget {
                 if (snapshot.data == true) {
                   return AssessmentDashboard();
                 } else {
-                  return AssessmentDashboard();
+                  return StudentDashboard();
                 }
               }
               return Scaffold(body: Center(child: CircularProgressIndicator()));

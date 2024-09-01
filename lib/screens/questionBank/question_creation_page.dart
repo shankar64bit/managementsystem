@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class QuestionCreationPage extends StatefulWidget {
-  final String questionBankId; // Accept questionBankId as a parameter
+  final String questionBankId;
 
   QuestionCreationPage({required this.questionBankId});
 
@@ -13,9 +13,10 @@ class QuestionCreationPage extends StatefulWidget {
 class _QuestionCreationPageState extends State<QuestionCreationPage> {
   final _formKey = GlobalKey<FormState>();
   String _questionText = '';
-  String _selectedType = 'Multiple Choice';
+  String _selectedType = 'Multiple-choice';
   String _selectedDifficulty = 'Easy';
   String _selectedSubject = 'Math';
+  String _correctAnswer = '';
 
   void _saveQuestion() {
     if (_formKey.currentState!.validate()) {
@@ -28,6 +29,7 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
         'type': _selectedType,
         'difficulty': _selectedDifficulty,
         'subject': _selectedSubject,
+        'correctAnswer': _correctAnswer,
         'createdAt': Timestamp.now(),
       }).then((_) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -57,6 +59,7 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
               TextFormField(
                 decoration: InputDecoration(
                   labelText: 'Question Text',
+                  hintText: 'Enter the question text here',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
@@ -66,7 +69,7 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                   });
                 },
                 validator: (value) {
-                  if (value!.isEmpty) {
+                  if (value == null || value.isEmpty) {
                     return 'Please enter the question text';
                   }
                   return null;
@@ -75,12 +78,13 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
               SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: _selectedType,
-                items: ['Multiple Choice', 'True/False', 'Essay']
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
+                items:
+                    ['Multiple-choice', 'Short answer', 'Essay', 'True/False']
+                        .map((type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ))
+                        .toList(),
                 onChanged: (value) {
                   setState(() {
                     _selectedType = value!;
@@ -128,6 +132,25 @@ class _QuestionCreationPageState extends State<QuestionCreationPage> {
                   labelText: 'Subject',
                   border: OutlineInputBorder(),
                 ),
+              ),
+              SizedBox(height: 20),
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: 'Correct Answer',
+                  hintText: 'Enter the correct answer here',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _correctAnswer = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter the correct answer';
+                  }
+                  return null;
+                },
               ),
               SizedBox(height: 30),
               ElevatedButton(

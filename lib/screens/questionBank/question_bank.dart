@@ -49,68 +49,90 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
               ),
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value;
+                  _searchQuery = value.toLowerCase();
                 });
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedType,
-                    items: ['All', 'MCQ', 'True/False', 'Essay']
-                        .map((type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedType = value!;
-                      });
-                    },
-                    decoration: InputDecoration(labelText: 'Filter by Type'),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedType,
+                        items: [
+                          'All',
+                          'Multiple-choice',
+                          'Short answer',
+                          'Essay',
+                          'True/False'
+                        ]
+                            .map((type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedType = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Filter by Type',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16.0),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedDifficulty,
+                        items: ['All', 'Easy', 'Medium', 'Hard']
+                            .map((difficulty) => DropdownMenuItem(
+                                  value: difficulty,
+                                  child: Text(difficulty),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedDifficulty = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Filter by Difficulty',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedDifficulty,
-                    items: ['All', 'Easy', 'Medium', 'Hard']
-                        .map((difficulty) => DropdownMenuItem(
-                              value: difficulty,
-                              child: Text(difficulty),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedDifficulty = value!;
-                      });
-                    },
-                    decoration:
-                        InputDecoration(labelText: 'Filter by Difficulty'),
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedSubject,
-                    items: ['All', 'Math', 'Science', 'History']
-                        .map((subject) => DropdownMenuItem(
-                              value: subject,
-                              child: Text(subject),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedSubject = value!;
-                      });
-                    },
-                    decoration: InputDecoration(labelText: 'Filter by Subject'),
-                  ),
+                SizedBox(height: 16.0),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedSubject,
+                        items: ['All', 'Math', 'Science', 'History']
+                            .map((subject) => DropdownMenuItem(
+                                  value: subject,
+                                  child: Text(subject),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSubject = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Filter by Subject',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -162,6 +184,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
                                     questionType: question['type'],
                                     questionDifficulty: question['difficulty'],
                                     questionSubject: question['subject'],
+                                    correctAnswer: question['correctAnswer'],
                                   ),
                                 ),
                               );
@@ -255,7 +278,13 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           .get();
 
       List<List<dynamic>> rows = [];
-      rows.add(['Text', 'Type', 'Difficulty', 'Subject']); // Header row
+      rows.add([
+        'Text',
+        'Type',
+        'Difficulty',
+        'Subject',
+        'Correct Answer'
+      ]); // Updated header row
 
       for (var question in snapshot.docs) {
         rows.add([
@@ -263,6 +292,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
           question['type'],
           question['difficulty'],
           question['subject'],
+          question['correctAnswer'],
         ]);
       }
 
@@ -309,6 +339,7 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
             'type': row[1],
             'difficulty': row[2],
             'subject': row[3],
+            'correctAnswer': row[4], // Added correct answer
           });
         }
 

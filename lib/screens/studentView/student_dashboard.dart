@@ -1,16 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'assessment_creation.dart';
-import 'assessment_detail.dart';
+import 'package:intl/intl.dart';
+import '../../models/assessment.dart';
+import '../teachersView/assessment_detail.dart';
 import '../user/login_page.dart';
+import 'assessment_history.dart';
 
-class AssessmentDashboard extends StatefulWidget {
+class StudentDashboard extends StatefulWidget {
   @override
-  _AssessmentDashboardState createState() => _AssessmentDashboardState();
+  _StudentDashboardState createState() => _StudentDashboardState();
 }
 
-class _AssessmentDashboardState extends State<AssessmentDashboard> {
+class _StudentDashboardState extends State<StudentDashboard> {
   String _searchQuery = '';
   String _selectedType = 'All';
   String _selectedSort = 'Date'; // Default sorting option
@@ -21,20 +23,13 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
   final Color dropdownColor = Color(0xFFE3F2FD); // Light blue
   final Color dropdownTextColor = Color.fromARGB(226, 0, 0, 0);
 
-  final List<Widget> _pages = [
-    AssessmentDashboard(), // Current page
-    SamplePage(title: 'Student View'), // Student View page
-    AssessmentCreationPage(), // Assessment Creation page
-    SamplePage(title: 'Profile'), // Profile page or another page
-  ];
-
-  Future<void> _logout(BuildContext context) async {
+  Future _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => LoginScreen()),
-        (Route<dynamic> route) => false,
+        (Route route) => false,
       );
     } catch (e) {
       setState(() {
@@ -46,23 +41,12 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    // Navigate to the selected page
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => _pages[_selectedIndex]),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
-        title: Text('Assessment Dashboard'),
+        title: Text('Student Dashboard'),
         actions: [
           IconButton(
             icon: Icon(Icons.logout),
@@ -103,9 +87,15 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                   child: Card(
                     elevation: 2,
                     color: dropdownColor,
-                    child: DropdownButton<String>(
+                    child: DropdownButton(
                       value: _selectedType,
-                      items: ['All', 'Quiz', 'Assignment', 'Survey']
+                      items: [
+                        'All',
+                        'Multiple-choice',
+                        'Short answer',
+                        'Essay',
+                        'True/False'
+                      ]
                           .map((type) => DropdownMenuItem(
                                 value: type,
                                 child: Center(
@@ -141,7 +131,7 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                   color: dropdownColor,
                   child: Container(
                     width: 150, // Fixed width for better alignment
-                    child: DropdownButton<String>(
+                    child: DropdownButton(
                       value: _selectedSort,
                       items: ['Date', 'Popularity', 'Completion Rate']
                           .map((sortOption) => DropdownMenuItem(
@@ -176,7 +166,7 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
 
             // StreamBuilder to display assessments
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
+              child: StreamBuilder(
                 stream: FirebaseFirestore.instance
                     .collection('assessments')
                     .snapshots(),
@@ -184,31 +174,30 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                   if (!snapshot.hasData) {
                     return Center(child: CircularProgressIndicator());
                   }
-                  final assessments = snapshot.data!.docs;
+
+                  final assessments = snapshot.data!.docs
+                      .map((doc) => Assessment.fromMap(doc.data()))
+                      .toList();
 
                   // Filter assessments based on search query and selected type
                   final filteredAssessments = assessments.where((assessment) {
-                    final titleMatches = assessment['title']
-                        .toString()
-                        .toLowerCase()
-                        .contains(_searchQuery);
+                    final titleMatches =
+                        assessment.title.toLowerCase().contains(_searchQuery);
                     final typeMatches = _selectedType == 'All' ||
-                        assessment['type'] == _selectedType;
+                        assessment.type == _selectedType;
                     return titleMatches && typeMatches;
                   }).toList();
 
                   // Sort filtered assessments based on selected sort option
                   if (_selectedSort == 'Date') {
-                    filteredAssessments.sort((a, b) =>
-                        (a['createdAt'] as Timestamp)
-                            .compareTo(b['createdAt'] as Timestamp));
+                    filteredAssessments
+                        .sort((a, b) => a.createdAt.compareTo(b.createdAt));
                   } else if (_selectedSort == 'Popularity') {
                     filteredAssessments.sort((a, b) =>
-                        (b['popularity'] ?? 0).compareTo(a['popularity'] ?? 0));
+                        (b.popularity ?? 0).compareTo(a.popularity ?? 0));
                   } else if (_selectedSort == 'Completion Rate') {
-                    filteredAssessments.sort((a, b) =>
-                        (b['completionRate'] ?? 0.0)
-                            .compareTo(a['completionRate'] ?? 0.0));
+                    filteredAssessments.sort((a, b) => (b.completionRate ?? 0.0)
+                        .compareTo(a.completionRate ?? 0.0));
                   }
 
                   return ListView.builder(
@@ -220,12 +209,13 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
                         margin:
                             EdgeInsets.symmetric(horizontal: 0, vertical: 5),
                         child: ListTile(
-                          title: Text(assessment['title']),
+                          title: Text(assessment.title),
                           subtitle: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(assessment['type']),
-                              Text(assessment.id), // Displays the assessment ID
+                              Text(assessment.type),
+                              Text(DateFormat('(dd-MM-yyyy) HH:MMa')
+                                  .format(assessment.createdAt.toDate())),
                             ],
                           ),
                           onTap: () {
@@ -248,61 +238,31 @@ class _AssessmentDashboardState extends State<AssessmentDashboard> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: TextButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => AssessmentCreationPage()),
+            MaterialPageRoute(
+                builder: (context) => StudentAssignmentHistoryPage()),
           );
         },
-        child: Icon(Icons.add),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-            backgroundColor: Colors.deepPurple,
+        style: TextButton.styleFrom(
+          backgroundColor: Colors.deepPurple,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.view_list),
-            label: 'Student',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.create),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Color.fromARGB(255, 213, 171, 255),
-        showUnselectedLabels: true,
-      ),
-    );
-  }
-}
-
-class SamplePage extends StatelessWidget {
-  final String title;
-
-  const SamplePage({Key? key, required this.title}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        title: Text(title),
-      ),
-      body: Center(
-        child: Text(
-          'This is the $title page',
-          style: TextStyle(fontSize: 24),
+          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Minimum size
+          children: [
+            Icon(Icons.history, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'History',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ],
         ),
       ),
     );

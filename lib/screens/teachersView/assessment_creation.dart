@@ -11,7 +11,7 @@ class AssessmentCreationPage extends StatefulWidget {
 class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   final _formKey = GlobalKey<FormState>();
   String _title = '';
-  String _type = 'Quiz';
+  String _type = 'Multiple-choice';
   String _questionBank = 'Select a question bank';
   List<Map<String, dynamic>> _questions = [];
   final TextEditingController _questionController = TextEditingController();
@@ -19,16 +19,34 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   int _maxAttempts = 0;
   String _feedback = '';
   String _instructions = '';
+  List<String> _questionBanks = ['Select a question bank'];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchQuestionBanks();
+  }
+
+  void _fetchQuestionBanks() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('questionBanks').get();
+    setState(() {
+      _questionBanks = [
+        'Select a question bank',
+        ...snapshot.docs.map((doc) => doc.id)
+      ];
+    });
+  }
 
   void _addQuestion() {
     if (_questionController.text.isNotEmpty) {
       setState(() {
         _questions.add({
-          'id': 'custom_${_questions.length}', // Custom question identifier
+          'id': '${_questions.length}_${_questionController.text}',
           'text': _questionController.text,
-          'type': 'Short Answer', // Default type, can be modified
+          'type': _type,
           'correctAnswer': '',
-          'feedback': '',
+          'feedback': _feedback,
         });
         _questionController.clear();
       });
@@ -50,13 +68,12 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
         'id': newDocId,
         'title': _title,
         'type': _type,
-        'questionBankId':
+        'questionBank':
             _questionBank != 'Select a question bank' ? _questionBank : null,
-        'questions': _questions, // Custom questions added manually
+        'questions': _questions,
         'timeLimit': _timeLimit,
         'maxAttempts': _maxAttempts,
-        'feedbackType':
-            'Immediate', // Example: "Immediate" or "After Completion"
+        'feedback': _feedback,
         'createdAt': Timestamp.now(),
         'updatedAt': Timestamp.now(),
         'instructions': _instructions,
@@ -64,7 +81,6 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
       }).then((_) {
         Navigator.pop(context);
       }).catchError((error) {
-        // Handle the error properly in your UI
         print('Error saving assessment: $error');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Failed to save assessment. Please try again.'),
@@ -81,11 +97,17 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
           .collection('questions')
           .get();
 
-      final questionsFromBank =
-          questionsSnapshot.docs.map((doc) => doc.data()).toList();
-
       setState(() {
-        _questions.addAll(questionsFromBank.cast<Map<String, dynamic>>());
+        _questions.addAll(questionsSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'text': data['text'] ?? '',
+            'type': data['type'] ?? 'Multiple-choice',
+            'correctAnswer': data['correctAnswer'] ?? '',
+            'feedback': data['feedback'] ?? '',
+          };
+        }).toList());
       });
     }
   }
@@ -184,12 +206,13 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
               ),
               DropdownButtonFormField<String>(
                 value: _type,
-                items: ['Quiz', 'Assignment', 'Survey']
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
+                items:
+                    ['Multiple-choice', 'Short answer', 'Essay', 'True/False']
+                        .map((type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ))
+                        .toList(),
                 onChanged: (value) {
                   setState(() {
                     _type = value!;
