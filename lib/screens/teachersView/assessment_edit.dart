@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../questionBank/question_creation_page.dart'; // Import your QuestionCreationPage
 
 class AssessmentEditPage extends StatefulWidget {
   final String assessmentId;
@@ -11,6 +12,7 @@ class AssessmentEditPage extends StatefulWidget {
 }
 
 class _AssessmentEditPageState extends State<AssessmentEditPage> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _timeLimitController = TextEditingController();
@@ -18,11 +20,12 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
   final TextEditingController _feedbackController = TextEditingController();
   final TextEditingController _instructionController = TextEditingController();
 
-  String? _selectedType; // Use nullable type
-  String? _selectedQuestionBank; // Use nullable type
+  String? _selectedType;
+  String? _selectedQuestionBank;
   List<Map<String, dynamic>> _questions = [];
   List<String> _assessmentTypes = [];
   List<String> _questionBanks = [];
+  final Map<String, List<TextEditingController>> _optionControllers = {};
 
   bool _hasTimer = false;
   bool _isLoading = true;
@@ -82,14 +85,13 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
           await FirebaseFirestore.instance.collection('questionBanks').get();
 
       setState(() {
-        // Ensure uniqueness using Set
         _assessmentTypes = typesSnapshot.docs
             .map((doc) => doc['type'] as String)
             .toSet()
             .toList();
         _questionBanks = banksSnapshot.docs
-            .map((doc) => doc['name'] as String)
-            .toSet()
+            .map((doc) =>
+                doc.id) // Assuming question bank IDs are stored as doc IDs
             .toList();
       });
     } catch (e) {
@@ -103,15 +105,29 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
 
   void _addQuestion() {
     if (_questionController.text.isNotEmpty) {
+      Map<String, dynamic> question = {
+        'id': '${_questions.length}_${_questionController.text}',
+        'text': _questionController.text,
+        'type': _selectedType,
+        'correctAnswer': '',
+        'feedback': _feedbackController.text,
+        'options': [],
+      };
+
+      // Add options based on type
+      if (_selectedType == 'Multiple-choice') {
+        question['options'] = _optionControllers[_questionController.text]
+                ?.map((controller) => controller.text)
+                .toList() ??
+            [];
+      } else if (_selectedType == 'True/False') {
+        question['options'] = ['True', 'False'];
+      }
+
       setState(() {
-        _questions.add({
-          'id': '${_questions.length}_${_questionController.text}',
-          'text': _questionController.text,
-          'type': _selectedType,
-          'correctAnswer': '',
-          'feedback': _feedbackController.text,
-        });
+        _questions.add(question);
         _questionController.clear();
+        _optionControllers.remove(_questionController.text);
       });
     }
   }
@@ -123,37 +139,79 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
   }
 
   void _updateAssessment() {
-    if (_titleController.text.isEmpty || _selectedType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Title and Type are required fields.')),
-      );
-      return;
+    if (_formKey.currentState!.validate()) {
+      FirebaseFirestore.instance
+          .collection('assessments')
+          .doc(widget.assessmentId)
+          .update({
+        'title': _titleController.text,
+        'type': _selectedType,
+        'questionBank': _selectedQuestionBank,
+        'questions': _questions,
+        'timeLimit': int.tryParse(_timeLimitController.text) ?? 0,
+        'maxAttempts': int.tryParse(_maxAttemptsController.text) ?? 0,
+        'feedback': _feedbackController.text,
+        'instructions': _instructionController.text,
+        'hasTimer': _hasTimer,
+        'updatedAt': Timestamp.now(),
+      }).then((_) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Assessment updated successfully.')),
+        );
+      }).catchError((error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update assessment: $error')),
+        );
+      });
+    }
+  }
+
+  Widget _buildOptionsField(String questionId) {
+    if (!_optionControllers.containsKey(questionId)) {
+      _optionControllers[questionId] = [TextEditingController()];
     }
 
-    FirebaseFirestore.instance
-        .collection('assessments')
-        .doc(widget.assessmentId)
-        .update({
-      'title': _titleController.text,
-      'type': _selectedType,
-      'questionBank': _selectedQuestionBank,
-      'questions': _questions,
-      'timeLimit': int.tryParse(_timeLimitController.text) ?? 0,
-      'maxAttempts': int.tryParse(_maxAttemptsController.text) ?? 0,
-      'feedback': _feedbackController.text,
-      'instructions': _instructionController.text,
-      'hasTimer': _hasTimer,
-      'updatedAt': Timestamp.now(),
-    }).then((_) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Assessment updated successfully.')),
-      );
-    }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update assessment: $error')),
-      );
-    });
+    List<TextEditingController> controllers = _optionControllers[questionId]!;
+
+    return Column(
+      children: [
+        ...controllers.map(
+          (controller) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Option',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.remove_circle),
+                  onPressed: () {
+                    setState(() {
+                      controllers.remove(controller);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              controllers.add(TextEditingController());
+            });
+          },
+          child: Text('Add Option'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -173,13 +231,21 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                         style: TextStyle(color: Colors.red),
                       ),
                     )
-                  : SingleChildScrollView(
+                  : Form(
+                      key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
+                          TextFormField(
                             controller: _titleController,
-                            decoration: InputDecoration(labelText: 'Title'),
+                            decoration:
+                                InputDecoration(labelText: 'Assessment Title'),
+                            validator: (value) {
+                              if (value!.isEmpty) {
+                                return 'Please enter a title';
+                              }
+                              return null;
+                            },
                           ),
                           DropdownButtonFormField<String>(
                             value: _selectedType,
@@ -194,7 +260,8 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                                 _selectedType = value;
                               });
                             },
-                            decoration: InputDecoration(labelText: 'Type'),
+                            decoration:
+                                InputDecoration(labelText: 'Assessment Type'),
                           ),
                           DropdownButtonFormField<String>(
                             value: _selectedQuestionBank,
@@ -207,12 +274,13 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                             onChanged: (value) {
                               setState(() {
                                 _selectedQuestionBank = value;
+                                _selectQuestionFromBank(); // Auto-add questions from selected bank
                               });
                             },
                             decoration:
                                 InputDecoration(labelText: 'Question Bank'),
                           ),
-                          TextField(
+                          TextFormField(
                             controller: _questionController,
                             decoration: InputDecoration(
                               labelText: 'Enter a question',
@@ -222,9 +290,10 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                               ),
                             ),
                           ),
+                          if (_selectedType == 'Multiple-choice')
+                            _buildOptionsField(_questionController.text),
                           SizedBox(height: 10),
-                          SizedBox(
-                            height: 200,
+                          Expanded(
                             child: ListView.builder(
                               itemCount: _questions.length,
                               itemBuilder: (context, index) {
@@ -239,23 +308,23 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                               },
                             ),
                           ),
-                          TextField(
+                          TextFormField(
                             controller: _timeLimitController,
                             decoration: InputDecoration(
                                 labelText: 'Time Limit (minutes)'),
                             keyboardType: TextInputType.number,
                           ),
-                          TextField(
+                          TextFormField(
                             controller: _maxAttemptsController,
                             decoration:
                                 InputDecoration(labelText: 'Max Attempts'),
                             keyboardType: TextInputType.number,
                           ),
-                          TextField(
+                          TextFormField(
                             controller: _feedbackController,
                             decoration: InputDecoration(labelText: 'Feedback'),
                           ),
-                          TextField(
+                          TextFormField(
                             controller: _instructionController,
                             decoration:
                                 InputDecoration(labelText: 'Instructions'),
@@ -272,12 +341,37 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                           SizedBox(height: 20),
                           ElevatedButton(
                             onPressed: _updateAssessment,
-                            child: Text('Update'),
+                            child: Text('Update Assessment'),
                           ),
                         ],
                       ),
                     ),
             ),
     );
+  }
+
+  void _selectQuestionFromBank() async {
+    if (_selectedQuestionBank != null &&
+        _selectedQuestionBank != 'Select a question bank') {
+      final questionsSnapshot = await FirebaseFirestore.instance
+          .collection('questionBanks')
+          .doc(_selectedQuestionBank!)
+          .collection('questions')
+          .get();
+
+      setState(() {
+        _questions.addAll(questionsSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'text': data['text'] ?? '',
+            'type': data['type'] ?? 'Multiple-choice',
+            'correctAnswer': data['correctAnswer'] ?? '',
+            'feedback': data['feedback'] ?? '',
+            'options': data['options'] ?? [],
+          };
+        }).toList());
+      });
+    }
   }
 }

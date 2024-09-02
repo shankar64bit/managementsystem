@@ -289,7 +289,11 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _questionBank,
-                      items: _questionBanks
+                      items: [
+                        'Select a question bank',
+                        'Question Bank 1', // These should be dynamic or real IDs from Firestore
+                        'Question Bank 2'
+                      ]
                           .map((bank) => DropdownMenuItem(
                                 value: bank,
                                 child: Text(bank),
