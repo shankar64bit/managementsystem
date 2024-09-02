@@ -12,20 +12,21 @@ class AssessmentEditPage extends StatefulWidget {
 
 class _AssessmentEditPageState extends State<AssessmentEditPage> {
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _questionController = TextEditingController();
   final TextEditingController _timeLimitController = TextEditingController();
   final TextEditingController _maxAttemptsController = TextEditingController();
   final TextEditingController _feedbackController = TextEditingController();
   final TextEditingController _instructionController = TextEditingController();
 
-  String _selectedType = '';
-  String _selectedQuestionBank = '';
-  bool _hasTimer = false;
-  bool _isLoading = true;
-  String _errorMessage = '';
-
+  String? _selectedType; // Use nullable type
+  String? _selectedQuestionBank; // Use nullable type
   List<Map<String, dynamic>> _questions = [];
   List<String> _assessmentTypes = [];
   List<String> _questionBanks = [];
+
+  bool _hasTimer = false;
+  bool _isLoading = true;
+  String _errorMessage = '';
 
   @override
   void initState() {
@@ -45,8 +46,8 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
         Map<String, dynamic> data = assessment.data() as Map<String, dynamic>;
         setState(() {
           _titleController.text = data['title'] ?? '';
-          _selectedType = data['type'] ?? '';
-          _selectedQuestionBank = data['questionBank'] ?? '';
+          _selectedType = data['type'];
+          _selectedQuestionBank = data['questionBank'];
           _questions = (data['questions'] as List<dynamic>?)
                   ?.map((q) => q as Map<String, dynamic>)
                   .toList() ??
@@ -81,11 +82,14 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
           await FirebaseFirestore.instance.collection('questionBanks').get();
 
       setState(() {
+        // Ensure uniqueness using Set
         _assessmentTypes = typesSnapshot.docs
-            .map((doc) => doc['type'] as String) // Ensure the type is String
+            .map((doc) => doc['type'] as String)
+            .toSet()
             .toList();
         _questionBanks = banksSnapshot.docs
-            .map((doc) => doc['name'] as String) // Ensure the type is String
+            .map((doc) => doc['name'] as String)
+            .toSet()
             .toList();
       });
     } catch (e) {
@@ -97,8 +101,29 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
     }
   }
 
+  void _addQuestion() {
+    if (_questionController.text.isNotEmpty) {
+      setState(() {
+        _questions.add({
+          'id': '${_questions.length}_${_questionController.text}',
+          'text': _questionController.text,
+          'type': _selectedType,
+          'correctAnswer': '',
+          'feedback': _feedbackController.text,
+        });
+        _questionController.clear();
+      });
+    }
+  }
+
+  void _removeQuestion(int index) {
+    setState(() {
+      _questions.removeAt(index);
+    });
+  }
+
   void _updateAssessment() {
-    if (_titleController.text.isEmpty || _selectedType.isEmpty) {
+    if (_titleController.text.isEmpty || _selectedType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Title and Type are required fields.')),
       );
@@ -111,16 +136,12 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
         .update({
       'title': _titleController.text,
       'type': _selectedType,
-      'questionBank':
-          _selectedQuestionBank.isNotEmpty ? _selectedQuestionBank : null,
+      'questionBank': _selectedQuestionBank,
       'questions': _questions,
       'timeLimit': int.tryParse(_timeLimitController.text) ?? 0,
       'maxAttempts': int.tryParse(_maxAttemptsController.text) ?? 0,
-      'feedback':
-          _feedbackController.text.isNotEmpty ? _feedbackController.text : null,
-      'instructions': _instructionController.text.isNotEmpty
-          ? _instructionController.text
-          : null,
+      'feedback': _feedbackController.text,
+      'instructions': _instructionController.text,
       'hasTimer': _hasTimer,
       'updatedAt': Timestamp.now(),
     }).then((_) {
@@ -154,6 +175,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                     )
                   : SingleChildScrollView(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           TextField(
                             controller: _titleController,
@@ -169,7 +191,7 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                                 .toList(),
                             onChanged: (value) {
                               setState(() {
-                                _selectedType = value!;
+                                _selectedType = value;
                               });
                             },
                             decoration: InputDecoration(labelText: 'Type'),
@@ -184,52 +206,38 @@ class _AssessmentEditPageState extends State<AssessmentEditPage> {
                                 .toList(),
                             onChanged: (value) {
                               setState(() {
-                                _selectedQuestionBank = value!;
+                                _selectedQuestionBank = value;
                               });
                             },
                             decoration:
                                 InputDecoration(labelText: 'Question Bank'),
                           ),
-                          Column(
-                            children: _questions
-                                .asMap()
-                                .entries
-                                .map(
-                                  (entry) => Row(
-                                    children: [
-                                      Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          value: entry.value['text'],
-                                          items: _questions
-                                              .map((q) =>
-                                                  DropdownMenuItem<String>(
-                                                    value: q['text'],
-                                                    child: Text(q['text']),
-                                                  ))
-                                              .toList(),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _questions[entry.key]['text'] =
-                                                  value!;
-                                            });
-                                          },
-                                          decoration: InputDecoration(
-                                              labelText:
-                                                  'Question ${entry.key + 1}'),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.delete),
-                                        onPressed: () {
-                                          setState(() {
-                                            _questions.removeAt(entry.key);
-                                          });
-                                        },
-                                      ),
-                                    ],
+                          TextField(
+                            controller: _questionController,
+                            decoration: InputDecoration(
+                              labelText: 'Enter a question',
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.add),
+                                onPressed: _addQuestion,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          SizedBox(
+                            height: 200,
+                            child: ListView.builder(
+                              itemCount: _questions.length,
+                              itemBuilder: (context, index) {
+                                return ListTile(
+                                  title: Text(_questions[index]['text'] ??
+                                      'No Question Text'),
+                                  trailing: IconButton(
+                                    icon: Icon(Icons.delete),
+                                    onPressed: () => _removeQuestion(index),
                                   ),
-                                )
-                                .toList(),
+                                );
+                              },
+                            ),
                           ),
                           TextField(
                             controller: _timeLimitController,

@@ -257,8 +257,10 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
           .set({
         'answers': _studentAnswers,
         'progress': _currentQuestionIndex,
-        'savedAt': Timestamp.now(),
+        'submittedAt': Timestamp.now(),
         'lastUpdatedBy': _currentUser?.uid,
+        'status': 'In-progress',
+        'submittedBy': _currentUser?.email,
       }, SetOptions(merge: true));
 
       if (showSnackBar) {
@@ -290,7 +292,7 @@ class _AssessmentTakingPageState extends State<AssessmentTakingPage> {
         'answers': _studentAnswers,
         'submittedAt': Timestamp.now(),
         'status': 'submitted',
-        'submittedBy': _currentUser?.uid,
+        'submittedBy': _currentUser?.email,
       }, SetOptions(merge: true));
 
       setState(() {

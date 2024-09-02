@@ -27,12 +27,18 @@ class _LoginScreenState extends State<LoginScreen> {
         await authService.signIn(_email, _password);
         // If successful, the AuthWrapper in main.dart will handle navigation
       } catch (e) {
-        UIHelpers.showSnackBar(context, 'Login failed: ${e.toString()}',
-            isError: true);
+        if (mounted) {
+          // Check if the widget is still mounted before calling setState
+          UIHelpers.showSnackBar(context, 'Login failed: ${e.toString()}',
+              isError: true);
+        }
       } finally {
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          // Check if the widget is still mounted before calling setState
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }

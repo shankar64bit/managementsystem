@@ -251,8 +251,8 @@ class _StudentAssignmentHistoryPageState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('ID: ${assignment.id}'),
-        // if (assignment['feedback'] != null)
-        //   Text('Feedback: ${assignment['feedback']}'),
+        if (assignment['submittedBy'] != null)
+          Text('Submitted-By: ${assignment['submittedBy']}'),
         // if (assignment['score'] != null) Text('Score: ${assignment['score']}'),
         // if (assignment['maxScore'] != null)
         //   Text('Max Score: ${assignment['maxScore']}'),

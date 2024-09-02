@@ -20,6 +20,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
   String _feedback = '';
   String _instructions = '';
   List<String> _questionBanks = ['Select a question bank'];
+  final Map<String, List<TextEditingController>> _optionControllers = {};
 
   @override
   void initState() {
@@ -40,15 +41,29 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
 
   void _addQuestion() {
     if (_questionController.text.isNotEmpty) {
+      Map<String, dynamic> question = {
+        'id': '${_questions.length}_${_questionController.text}',
+        'text': _questionController.text,
+        'type': _type,
+        'correctAnswer': '',
+        'feedback': _feedback,
+        'options': [],
+      };
+
+      // Add options based on type
+      if (_type == 'Multiple-choice') {
+        question['options'] = _optionControllers[_questionController.text]
+                ?.map((controller) => controller.text)
+                .toList() ??
+            [];
+      } else if (_type == 'True/False') {
+        question['options'] = ['True', 'False'];
+      }
+
       setState(() {
-        _questions.add({
-          'id': '${_questions.length}_${_questionController.text}',
-          'text': _questionController.text,
-          'type': _type,
-          'correctAnswer': '',
-          'feedback': _feedback,
-        });
+        _questions.add(question);
         _questionController.clear();
+        _optionControllers.remove(_questionController.text);
       });
     }
   }
@@ -106,6 +121,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
             'type': data['type'] ?? 'Multiple-choice',
             'correctAnswer': data['correctAnswer'] ?? '',
             'feedback': data['feedback'] ?? '',
+            'options': data['options'] ?? [],
           };
         }).toList());
       });
@@ -141,6 +157,54 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
         content: Text('Please select a question bank first!'),
       ));
     }
+  }
+
+  Widget _buildOptionsField(String questionId) {
+    // For multiple-choice type, allow options to be added
+    if (!_optionControllers.containsKey(questionId)) {
+      _optionControllers[questionId] = [TextEditingController()];
+    }
+
+    List<TextEditingController> controllers = _optionControllers[questionId]!;
+
+    return Column(
+      children: [
+        ...controllers.map(
+          (controller) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Option',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.remove_circle),
+                  onPressed: () {
+                    setState(() {
+                      controllers.remove(controller);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              controllers.add(TextEditingController());
+            });
+          },
+          child: Text('Add Option'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -225,11 +289,7 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _questionBank,
-                      items: [
-                        'Select a question bank',
-                        'Question Bank 1', // These should be dynamic or real IDs from Firestore
-                        'Question Bank 2'
-                      ]
+                      items: _questionBanks
                           .map((bank) => DropdownMenuItem(
                                 value: bank,
                                 child: Text(bank),
@@ -261,6 +321,8 @@ class _AssessmentCreationPageState extends State<AssessmentCreationPage> {
                   ),
                 ),
               ),
+              if (_type == 'Multiple-choice')
+                _buildOptionsField(_questionController.text),
               SizedBox(height: 10),
               Expanded(
                 child: ListView.builder(
